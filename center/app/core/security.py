@@ -14,18 +14,31 @@ from app.core.config import settings
 from app.core.database import get_db
 from app.models.db import Operator
 
+# passlib 1.7.4 несовместим с bcrypt >= 4.1 (самопроверка бэкенда падает с
+# ValueError "password cannot be longer than 72 bytes"), поэтому фиксируем
+# bcrypt==4.0.* в requirements.txt и дополнительно ограничиваем пароль длиной
+# 72 байта — жёсткий лимит алгоритма bcrypt (иначе хэш/verify упадут на runtime).
+_BCRYPT_MAX_BYTES = 72
+
 pwd_ctx = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login", auto_error=False)
 
 
+def _bcrypt_safe(p: str) -> str:
+    """Обрезка пароля до 72 байт UTF-8 без разрыва многобайтовых символов."""
+    raw = p.encode("utf-8")[:_BCRYPT_MAX_BYTES]
+    return raw.decode("utf-8", errors="ignore")
+
+
 def hash_password(p: str) -> str:
-    return pwd_ctx.hash(p)
+    return pwd_ctx.hash(_bcrypt_safe(p))
 
 
 def verify_password(p: str, h: str) -> bool:
     try:
-        return pwd_ctx.verify(p, h)
+        return pwd_ctx.verify(_bcrypt_safe(p), h)
     except ValueError:
+        # некорректный/битый хэш или несовместимость бэкенда — считаем неудачей
         return False
 
 
