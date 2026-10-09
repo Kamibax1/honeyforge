@@ -3,13 +3,16 @@ from __future__ import annotations
 
 import datetime as dt
 from typing import Any, Literal, Optional
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 # ---------- Профили (FR-C1) ----------
 class ServiceSpec(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
     proto: Literal["tcp", "udp", "http"] = "tcp"
     port: int = Field(ge=1, le=65535)
+    kind: str = ""            # ftp/telnet/smtp/http/ssh/… — подсказка оператору
     banner: str = ""
     # для medium-эмуляций
     fake_fs: bool = False
