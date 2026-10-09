@@ -13,11 +13,13 @@
 </header>
 
 <section id="loginView" class="panel login">
+  <form id="loginForm" autocomplete="off" onsubmit="return false">
   <h2>Вход оператора</h2>
   <input id="lgUser" placeholder="Логин" autocomplete="username">
-  <input id="lgPass" type="password" placeholder="Пароль">
-  <button id="btnLogin">Войти</button>
+  <input id="lgPass" type="password" placeholder="Пароль" autocomplete="current-password">
+  <button id="btnLogin" type="submit">Войти</button>
   <div id="lgErr" class="err"></div>
+  </form>
 </section>
 
 <main id="appView" class="hidden">
