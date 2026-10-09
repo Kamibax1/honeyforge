@@ -1,7 +1,4 @@
-# Compiled and build artifacts
 __pycache__/
 *.pyc
-
-# SQLite temporary files
 *.db-shm
 *.db-wal
