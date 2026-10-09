@@ -2,121 +2,172 @@
 <html lang="ru"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>HoneyForge — Control Center</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="app.css">
 </head><body>
-<header>
-  <div class="brand">🍯 HoneyForge</div>
-  <div id="whoami" class="who"></div>
-  <div class="spacer"></div>
-  <span id="wsdot" class="dot off" title="realtime"></span>
-  <button id="btnLogout" class="ghost hidden">Выйти</button>
-</header>
 
-<section id="loginView" class="panel login">
-  <form id="loginForm" autocomplete="off" onsubmit="return false">
-  <h2>Вход оператора</h2>
-  <input id="lgUser" placeholder="Логин" autocomplete="username">
-  <input id="lgPass" type="password" placeholder="Пароль" autocomplete="current-password">
-  <button id="btnLogin" type="submit">Войти</button>
-  <div id="lgErr" class="err"></div>
+<!-- ===== Экран входа ===== -->
+<section id="loginView" class="login-wrap">
+  <div class="login-bg"></div>
+  <form id="loginForm" class="login-card" autocomplete="off" onsubmit="return false">
+    <div class="login-logo">🍯</div>
+    <h1>HoneyForge</h1>
+    <p class="login-sub">Центр управления ловушками-приманками</p>
+    <label class="field"><span>Логин оператора</span>
+      <input id="lgUser" placeholder="operator" autocomplete="username"></label>
+    <label class="field"><span>Пароль</span>
+      <input id="lgPass" type="password" placeholder="••••••••" autocomplete="current-password"></label>
+    <button id="btnLogin" class="btn primary lg" type="submit">Войти в консоль</button>
+    <div id="lgErr" class="err"></div>
   </form>
 </section>
 
-<main id="appView" class="hidden">
-  <nav class="tabs">
-    <button data-tab="fleet" class="active">Парк ловушек</button>
-    <button data-tab="profiles">Конструктор профилей</button>
-    <button data-tab="feed">Лента событий</button>
-    <button data-tab="alerts">Алерты / Honeytokens</button>
-    <button data-tab="audit">Аудит / Экспорт</button>
-  </nav>
-
-  <section id="tab-fleet" class="tab">
-    <div class="cards">
-      <div class="card"><b id="stTotal">0</b><span>ловушек</span></div>
-      <div class="card ok"><b id="stOnline">0</b><span>online</span></div>
-      <div class="card"><b id="stEvents">0</b><span>событий / 24ч</span></div>
-      <div class="card warn"><b id="stAlerts">0</b><span>алертов / 24ч</span></div>
+<!-- ===== Приложение ===== -->
+<div id="shell" class="app-shell hidden">
+  <aside class="sidebar" id="sidebar">
+    <div class="brand"><i>🍯</i><span>HoneyForge<small>control center</small></span></div>
+    <nav class="side-nav">
+      <button data-tab="fleet" class="active"><svg viewBox="0 0 24 24"><path d="M4 6a2 2 0 1 0 4 0 2 2 0 0 1 4 0 2 2 0 1 0 4 0M4 12a2 2 0 1 0 4 0 2 2 0 0 1 4 0 2 2 0 1 0 4 0M4 18a2 2 0 1 0 4 0 2 2 0 0 1 4 0 2 2 0 1 0 4 0"/></svg>Парк ловушек</button>
+      <button data-tab="profiles"><svg viewBox="0 0 24 24"><path d="M12 15.5A3.5 3.5 0 1 0 12 8.5a3.5 3.5 0 0 0 0 7zm7.4-2.6 2 .9-.8 2-2.1-.5a7.6 7.6 0 0 1-1.5 1.5l.5 2.1-2 .8-.9-2a7.5 7.5 0 0 1-2 0l-.9 2-2-.8.5-2.1a7.6 7.6 0 0 1-1.5-1.5l-2.1.5-.8-2 2-.9a7.5 7.5 0 0 1 0-2l-2-.9.8-2 2.1.5a7.6 7.6 0 0 1 1.5-1.5l-.5-2.1 2-.8.9 2a7.5 7.5 0 0 1 2 0l.9-2 2 .8-.5 2.1c.6.4 1.1.9 1.5 1.5l2.1-.5.8 2-2 .9a7.5 7.5 0 0 1 0 2z"/></svg>Конструктор профилей</button>
+      <button data-tab="feed"><svg viewBox="0 0 24 24"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg>Лента событий</button>
+      <button data-tab="alerts"><svg viewBox="0 0 24 24"><path d="M12 3 2 20h20L12 3zm0 6v5m0 3h.01"/></svg>Алерты / Honeytokens</button>
+      <button data-tab="audit"><svg viewBox="0 0 24 24"><path d="M9 5H5v14h14V5h-4M8 3h8v4H8zM8 11h8M8 15h5"/></svg>Аудит / Экспорт</button>
+    </nav>
+    <div class="side-foot">
+      <div class="ws-pill"><span id="wsdot" class="dot off"></span><b id="wsLabel">realtime</b></div>
+      <div class="who-box"><span id="whoami" class="who"></span>
+        <button id="btnLogout" class="btn ghost sm">Выйти</button></div>
     </div>
-    <table class="grid"><thead><tr>
-      <th>Имя</th><th>Хост</th><th>Профиль</th><th>Уровень</th><th>Статус</th><th>Last seen</th><th>Действия</th>
-    </tr></thead><tbody id="hpRows"></tbody></table>
-    <div class="row">
-      <input id="hpName" placeholder="Имя новой ловушки">
-      <select id="hpProfile"></select>
-      <button id="btnAddHp">Зарегистрировать</button>
-      <span class="hint">после регистрации центр выдаёт uuid+secret и deploy-bundle (docker)</span>
-    </div>
-  </section>
+  </aside>
+  <div id="navScrim" class="scrim"></div>
 
-  <section id="tab-profiles" class="tab hidden">
-    <div class="split">
-      <div>
-        <h3>Профили</h3>
-        <ul id="profList" class="list"></ul>
-        <button id="btnNewProf">+ Новый профиль</button>
+  <main class="content">
+    <header class="topbar">
+      <button id="burger" class="icon-btn" aria-label="Меню"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+      <h2 id="pageTitle">Парк ловушек</h2>
+      <div class="spacer"></div>
+      <button id="btnRefreshAll" class="btn ghost sm" title="Обновить данные">⟳ Обновить</button>
+    </header>
+
+    <!-- Парк ловушек -->
+    <section id="tab-fleet" class="tab">
+      <div class="cards">
+        <div class="card c-blue"><div class="ci"><svg viewBox="0 0 24 24"><path d="M4 6a2 2 0 1 0 4 0 2 2 0 0 1 4 0 2 2 0 1 0 4 0M4 12a2 2 0 1 0 4 0 2 2 0 0 1 4 0 2 2 0 1 0 4 0M4 18a2 2 0 1 0 4 0 2 2 0 0 1 4 0 2 2 0 1 0 4 0"/></svg></div><div><b id="stTotal">0</b><span>ловушек в парке</span></div></div>
+        <div class="card c-green"><div class="ci"><svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm-1 14 6-6-1.4-1.4L11 13.2 8.7 10.9 7.3 12.3z"/></svg></div><div><b id="stOnline">0</b><span>онлайн сейчас</span></div></div>
+        <div class="card c-amber"><div class="ci"><svg viewBox="0 0 24 24"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg></div><div><b id="stEvents">0</b><span>событий атак / 24ч</span></div></div>
+        <div class="card c-red"><div class="ci"><svg viewBox="0 0 24 24"><path d="M12 3 2 20h20L12 3zm0 6v5m0 3h.01"/></svg></div><div><b id="stAlerts">0</b><span>открытых алертов</span></div></div>
       </div>
-      <div class="editor">
-        <h3>Конструктор профиля</h3>
-        <label>Имя <input id="pfName"></label>
-        <label>Описание <input id="pfDesc"></label>
-        <label>Уровень
-          <select id="pfLevel">
-            <option value="low">low (баннеры портов)</option>
-            <option value="medium">medium (fake-SSH/HTTP/админка)</option>
-            <option value="high">high (sandbox ОС)</option>
+
+      <div class="panel">
+        <div class="panel-head"><h3>Активные ловушки</h3><span class="hint">статусы обновляются из beacon'ов агентов</span></div>
+        <div class="tbl-scroll"><table class="grid"><thead><tr>
+          <th>Имя</th><th>Хост</th><th>Профиль</th><th>Уровень</th><th>Статус</th><th>Last seen</th><th>Действия</th>
+        </tr></thead><tbody id="hpRows"></tbody></table></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><h3>Регистрация новой ловушки</h3></div>
+        <div class="row reg-row">
+          <input id="hpName" placeholder="Имя новой ловушки (напр. hp-dmz-03)">
+          <select id="hpProfile"></select>
+          <button id="btnAddHp" class="btn primary">＋ Зарегистрировать</button>
+        </div>
+        <div class="hint">после регистрации центр выдаёт <code>uuid + secret</code> один раз и собирает deploy-bundle (docker) для хоста ловушки · FR-C2 / FR-C6</div>
+      </div>
+    </section>
+
+    <!-- Конструктор профилей -->
+    <section id="tab-profiles" class="tab hidden">
+      <div class="split">
+        <div class="panel prof-side">
+          <div class="panel-head"><h3>Профили</h3><span class="pill" id="profCount">0</span></div>
+          <ul id="profList" class="list"></ul>
+          <button id="btnNewProf" class="btn primary block">＋ Новый профиль</button>
+        </div>
+        <div class="panel editor">
+          <div class="panel-head"><h3>Конструктор профиля</h3><span id="pfMsg" class="hint"></span></div>
+          <div class="form-grid">
+            <label class="field"><span>Имя профиля</span><input id="pfName"></label>
+            <label class="field"><span>Описание</span><input id="pfDesc"></label>
+            <label class="field"><span>Уровень взаимодействия</span>
+              <select id="pfLevel">
+                <option value="low">low — баннеры портов</option>
+                <option value="medium">medium — fake-SSH / HTTP / админка</option>
+                <option value="high">high — sandbox ОС</option>
+              </select></label>
+          </div>
+          <div class="form-grid three">
+            <label class="field"><span>Сервисы / порты (JSON)</span><textarea id="pfServices" rows="6"></textarea></label>
+            <label class="field"><span>Креды-приманки (JSON)</span><textarea id="pfCreds" rows="6"></textarea></label>
+            <label class="field"><span>Honeytokens (JSON)</span><textarea id="pfTokens" rows="6"></textarea></label>
+          </div>
+          <fieldset class="mask-box"><legend>🛡 Маскировка канала (MASK-2/4/5)</legend>
+            <div class="form-grid four">
+              <label class="field"><span>cover_path</span><input id="pfCover"></label>
+              <label class="field"><span>beacon interval, сек</span><input id="pfInterval" type="number"></label>
+              <label class="field"><span>jitter %</span><input id="pfJitter" type="number"></label>
+              <label class="field"><span>process_name</span><input id="pfProc"></label>
+            </div>
+          </fieldset>
+          <div class="row end">
+            <button id="btnSaveProf" class="btn primary">💾 Сохранить профиль</button>
+            <button id="btnDelProf" class="btn danger ghost">Удалить</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Лента событий -->
+    <section id="tab-feed" class="tab hidden">
+      <div class="panel">
+        <div class="panel-head"><h3>Лента событий атак</h3><span class="live"><span class="pulse"></span>near-real-time</span></div>
+        <div class="row filters">
+          <select id="fTrap"><option value="">все ловушки</option></select>
+          <select id="fType"><option value="">все типы</option>
+            <option>connect</option><option>auth</option><option>command</option>
+            <option>request</option><option>scan</option><option>honeytoken</option><option>session</option>
           </select>
-        </label>
-        <label>Сервисы/порты (JSON) <textarea id="pfServices" rows="5"></textarea></label>
-        <label>Креды-приманки (JSON) <textarea id="pfCreds" rows="3"></textarea></label>
-        <label>Honeytokens (JSON) <textarea id="pfTokens" rows="3"></textarea></label>
-        <fieldset><legend>Маскировка канала</legend>
-          <label>cover_path <input id="pfCover"></label>
-          <label>beacon interval (сек) <input id="pfInterval" type="number"></label>
-          <label>jitter % <input id="pfJitter" type="number"></label>
-          <label>process_name <input id="pfProc"></label>
-        </fieldset>
-        <div class="row"><button id="btnSaveProf">Сохранить</button>
-        <button id="btnDelProf" class="danger ghost">Удалить</button>
-        <span id="pfMsg" class="hint"></span></div>
+          <input id="fSrc" placeholder="IP источника…">
+          <button id="btnRefreshEv" class="btn ghost">Фильтровать</button>
+        </div>
+        <div class="tbl-scroll tall"><table class="grid"><thead><tr>
+          <th>Время</th><th>Ловушка</th><th>Тип</th><th>Источник</th><th>Порт</th><th>Креды</th><th>Payload</th>
+        </tr></thead><tbody id="evRows"></tbody></table></div>
       </div>
-    </div>
-  </section>
+    </section>
 
-  <section id="tab-feed" class="tab hidden">
-    <div class="row filters">
-      <select id="fTrap"><option value="">все ловушки</option></select>
-      <select id="fType"><option value="">все типы</option>
-        <option>connect</option><option>auth</option><option>command</option>
-        <option>request</option><option>scan</option><option>honeytoken</option><option>session</option>
-      </select>
-      <input id="fSrc" placeholder="src ip">
-      <button id="btnRefreshEv">Обновить</button>
-    </div>
-    <table class="grid"><thead><tr>
-      <th>Время</th><th>Ловушка</th><th>Тип</th><th>Источник</th><th>Порт</th><th>Креды</th><th>Payload</th>
-    </tr></thead><tbody id="evRows"></tbody></table>
-  </section>
+    <!-- Алерты / honeytokens -->
+    <section id="tab-alerts" class="tab hidden">
+      <div class="panel">
+        <div class="panel-head"><h3>⚠ Алерты (правила центра)</h3><span class="hint">≥N попыток входа за минуту → уведомление · FR-C7</span></div>
+        <div class="tbl-scroll"><table class="grid"><thead><tr><th>Время</th><th>Правило</th><th>Severity</th><th>IP</th><th>Детали</th></tr></thead>
+        <tbody id="alRows"></tbody></table></div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><h3>🍯 Honeytokens</h3><span class="hint">срабатывание = сигнал компрометации · FR-A6</span></div>
+        <div class="tbl-scroll"><table class="grid"><thead><tr><th>Метка</th><th>Тип</th><th>Сработал</th><th>Когда</th><th>IP</th></tr></thead>
+        <tbody id="htRows"></tbody></table></div>
+      </div>
+    </section>
 
-  <section id="tab-alerts" class="tab hidden">
-    <h3>Алерты (правила центра)</h3>
-    <table class="grid"><thead><tr><th>Время</th><th>Правило</th><th>Severity</th><th>IP</th><th>Детали</th></tr></thead>
-    <tbody id="alRows"></tbody></table>
-    <h3>Honeytokens</h3>
-    <table class="grid"><thead><tr><th>Метка</th><th>Тип</th><th>Сработал</th><th>Когда</th><th>IP</th></tr></thead>
-    <tbody id="htRows"></tbody></table>
-  </section>
-
-  <section id="tab-audit" class="tab hidden">
-    <div class="row">
-      <button id="btnExpCsv">Экспорт IoC (CSV)</button>
-      <button id="btnExpStix">Экспорт IoC (STIX)</button>
-    </div>
-    <h3>Журнал аудита оператора</h3>
-    <table class="grid"><thead><tr><th>Время</th><th>Актор</th><th>Действие</th><th>Объект</th><th>Meta</th></tr></thead>
-    <tbody id="auRows"></tbody></table>
-  </section>
-</main>
+    <!-- Аудит / экспорт -->
+    <section id="tab-audit" class="tab hidden">
+      <div class="panel">
+        <div class="panel-head"><h3>Экспорт IoC</h3><span class="hint">индикаторы компрометации за 7 дней</span></div>
+        <div class="row">
+          <button id="btnExpCsv" class="btn primary">⬇ CSV</button>
+          <button id="btnExpStix" class="btn ghost">⬇ STIX 2.1</button>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><h3>Журнал аудита оператора</h3></div>
+        <div class="tbl-scroll"><table class="grid"><thead><tr><th>Время</th><th>Актор</th><th>Действие</th><th>Объект</th><th>Meta</th></tr></thead>
+        <tbody id="auRows"></tbody></table></div>
+      </div>
+    </section>
+  </main>
+</div>
 
 <div id="toast" class="toast"></div>
 <script src="app.js"></script>
