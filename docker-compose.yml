@@ -1,0 +1,69 @@
+# HoneyForge — стек центра управления (dev-стенд).
+# Запуск:  docker compose up -d --build
+#   UI:        http://localhost:8080/
+#   API docs:  http://localhost:8080/assets/docs  (Swagger, маскированный путь)
+#   Login:     operator / honeyforge  (переопределяется в .env)
+#
+# Сегментация контуров: center и db не публикуют порты наружу —
+# агенты и оператор заходят только через nginx (фронт) и realtime-слой.
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: hf_center
+      POSTGRES_PASSWORD: ${HF_DB_PASSWORD:-hf_center}
+      POSTGRES_DB: honeyforge
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hf_center -d honeyforge"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  center:
+    build: ./center
+    environment:
+      DATABASE_URL: postgresql+psycopg2://hf_center:${HF_DB_PASSWORD:-hf_center}@db:5432/honeyforge
+      HF_JWT_SECRET: ${HF_JWT_SECRET:-change-me-in-env}
+      HF_AGGREGATOR_KEY: ${HF_AGGREGATOR_KEY:-change-me-aggregator-key}
+      HF_ADMIN_LOGIN: ${HF_ADMIN_LOGIN:-operator}
+      HF_ADMIN_PASSWORD: ${HF_ADMIN_PASSWORD:-honeyforge}
+      ENV: prod
+    depends_on:
+      db:
+        condition: service_healthy
+    expose:
+      - "8000"
+    restart: unless-stopped
+
+  realtime:
+    build: ./realtime
+    environment:
+      CENTER_URL: http://center:8000
+      HF_AGGREGATOR_KEY: ${HF_AGGREGATOR_KEY:-change-me-aggregator-key}
+    depends_on:
+      - center
+    ports:
+      # Единственная «публичная» точка для агентов ловушек (MASK-2):
+      # beacon + WebSocket идут только сюда, Control API наружу не торчит.
+      - "8090:8090"
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:1.27-alpine
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./nginx/certs:/etc/nginx/certs:ro
+      - ./ui:/srv/ui:ro
+    depends_on:
+      - center
+      - realtime
+    ports:
+      - "8080:80"
+      - "8443:443"
+    restart: unless-stopped
+
+volumes:
+  pgdata:
