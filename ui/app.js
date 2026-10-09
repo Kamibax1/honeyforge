@@ -106,18 +106,33 @@ function logout() {
   token = '';
   localStorage.removeItem(TOKEN_KEY);
   if (ws) { try { ws.close(); } catch (_) {} ws = null; }
-  $('wsdot').className = 'dot off';
-  $('appView').classList.add('hidden');
+  setWsDot(false);
+  $('shell').classList.add('hidden');
   $('loginView').classList.remove('hidden');
-  $('btnLogout').classList.add('hidden');
   $('whoami').textContent = '';
+  closeNav();
+}
+
+function setWsDot(on) {
+  $('wsdot').className = 'dot ' + (on ? 'on' : 'off');
+  const lb = $('wsLabel');
+  if (lb) lb.textContent = on ? 'realtime: online' : 'realtime: офлайн';
+}
+
+/* ---------------- mobile nav ---------------- */
+function openNav() {
+  $('sidebar').classList.add('open');
+  $('navScrim').classList.add('show');
+}
+function closeNav() {
+  $('sidebar').classList.remove('open');
+  $('navScrim').classList.remove('show');
 }
 
 /* ---------------- app bootstrap ---------------- */
 async function enterApp() {
   $('loginView').classList.add('hidden');
-  $('appView').classList.remove('hidden');
-  $('btnLogout').classList.remove('hidden');
+  $('shell').classList.remove('hidden');
   connectWS();
   try {
     await Promise.all([loadProfiles(), loadHoneypots()]);
@@ -130,23 +145,25 @@ async function enterApp() {
 }
 
 /* ---------------- fleet (FR-C2) ---------------- */
+const ST_LABEL = { online: 'онлайн', offline: 'офлайн', pending: 'ожидает' };
+
 async function loadHoneypots() {
   honeypotsCache = await api('/honeypots');
   const rows = honeypotsCache.map((h) => `
     <tr>
-      <td>${esc(h.name)}</td>
+      <td class="hp-name">${esc(h.name)}</td>
       <td class="mono">${esc(h.host_addr || '—')}</td>
       <td>${esc(h.profile_name || 'не задан')}</td>
       <td><span class="lvl ${esc(h.level || '')}">${esc(h.level || '—')}</span></td>
-      <td><span class="st ${esc(h.status)}">${esc(h.status)}</span></td>
-      <td>${fmtTs(h.last_seen)}</td>
-      <td>
-        <button class="sm" data-cmd="start" data-id="${h.id}">▶ старт</button>
-        <button class="sm" data-cmd="stop" data-id="${h.id}">■ стоп</button>
-        <button class="sm" data-cmd="bundle" data-id="${h.id}" data-name="${esc(h.name)}">📦 deploy</button>
+      <td><span class="st ${esc(h.status)}"><i></i>${esc(ST_LABEL[h.status] || h.status)}</span></td>
+      <td class="mono">${fmtTs(h.last_seen)}</td>
+      <td class="actions">
+        <button class="btn icon ok" data-cmd="start" data-id="${h.id}" title="Запустить ловушку">▶</button>
+        <button class="btn icon stop" data-cmd="stop" data-id="${h.id}" title="Остановить ловушку">■</button>
+        <button class="btn icon dl" data-cmd="bundle" data-id="${h.id}" data-name="${esc(h.name)}" title="Скачать deploy-bundle (docker)">📦</button>
       </td>
     </tr>`).join('');
-  $('hpRows').innerHTML = rows || '<tr><td colspan="7" class="hint">нет ловушек — зарегистрируйте ниже</td></tr>';
+  $('hpRows').innerHTML = rows || '<tr><td colspan="7" class="hint empty">нет ловушек — зарегистрируйте новую ниже 👇</td></tr>';
   const sel = $('fTrap');
   const cur = sel.value;
   sel.innerHTML = '<option value="">все ловушки</option>' +
@@ -210,11 +227,13 @@ async function downloadBundle(id) {
 /* ---------------- profiles (FR-C1) ---------------- */
 async function loadProfiles() {
   profilesCache = await api('/profiles');
+  const pc = $('profCount');
+  if (pc) pc.textContent = profilesCache.length;
   $('profList').innerHTML = profilesCache.map((p) =>
     `<li data-pid="${p.id}" class="${p.id === currentProfId ? 'sel' : ''}">
-       <b>${esc(p.name)}</b> <span class="lvl ${esc(p.level)}">${esc(p.level)}</span>
-       <span class="hint">v${p.version}</span></li>`).join('') ||
-    '<li class="hint">профилей нет</li>';
+       <div class="prof-row"><b>${esc(p.name)}</b><span class="lvl ${esc(p.level)}">${esc(p.level)}</span></div>
+       <div class="hint">${esc(p.description || '')} · v${p.version}</div></li>`).join('') ||
+    '<li class="hint empty">профилей нет — создайте первый</li>';
   const sel = $('hpProfile');
   const cur = sel.value;
   sel.innerHTML = '<option value="">без профиля</option>' +
@@ -308,18 +327,23 @@ async function refreshEvents() {
   const rows = await api('/events?' + q.toString());
   evSeenIds.clear();
   $('evRows').innerHTML = rows.map(eventRow).join('') ||
-    '<tr><td colspan="7" class="hint">событий пока нет — атакуйте ловушку</td></tr>';
+    '<tr><td colspan="7" class="hint empty">событий пока нет — атакуйте ловушку (nmap / ssh / http)</td></tr>';
 }
+
+const ET_LABEL = {
+  connect: 'connect', auth: 'auth', command: 'command', request: 'request',
+  scan: 'scan', honeytoken: 'honeytoken', session: 'session', file: 'file',
+};
 
 function eventRow(e) {
   const payload = e.payload || {};
   const creds = payload.username ? `${payload.username}/${payload.password || ''}` : '';
   let pl = payload.command || payload.request || payload.banner_request || payload.note || '';
   if (!pl && payload.bytes !== undefined) pl = `${payload.bytes} bytes`;
-  return `<tr data-evid="${esc(e.id ?? '')}">
+  return `<tr data-evid="${esc(e.id ?? '')}" class="evrow">
     <td class="mono">${fmtTs(e.ts_received)}</td>
     <td>${esc(e.honeypot_name || e.honeypot_id || '')}</td>
-    <td><span class="tag ${esc(e.etype)}">${esc(e.etype)}</span></td>
+    <td><span class="tag ${esc(e.etype)}">${esc(ET_LABEL[e.etype] || e.etype)}</span></td>
     <td class="mono">${esc(e.src_ip)}</td>
     <td class="mono">${esc(e.dst_port ?? '')}</td>
     <td class="mono">${esc(creds)}</td>
@@ -402,9 +426,9 @@ function connectWS() {
   if (!key) key = askFeedKey();
   const url = `${proto}://${location.host}${WS_PATH}?k=${encodeURIComponent(key)}`;
   try { ws = new WebSocket(url); } catch (_) { return; }
-  ws.onopen = () => { $('wsdot').className = 'dot on'; wsRetry = 4000; };
+  ws.onopen = () => { setWsDot(true); wsRetry = 4000; };
   ws.onclose = (e) => {
-    $('wsdot').className = 'dot off';
+    setWsDot(false);
     ws = null;
     // 1008 policy violation — неверный ключ ленты: спросим заново
     if (e.code === 1008) {
@@ -423,6 +447,7 @@ function connectWS() {
       if (d.id && evSeenIds.has(d.id)) return;
       if (d.id) evSeenIds.add(d.id);
       const tr = document.createElement('tr');
+      tr.className = 'evrow new';
       tr.innerHTML = `<td class="mono">${fmtTs(d.ts)}</td>
         <td>${esc(d.trap || '')}</td>
         <td><span class="tag ${esc(d.etype || d.type)}">${esc(d.etype || '?')}</span></td>
@@ -455,11 +480,22 @@ function bumpCounter(id) {
 }
 
 /* ---------------- tabs ---------------- */
+const TAB_TITLES = {
+  fleet: 'Парк ловушек',
+  profiles: 'Конструктор профилей',
+  feed: 'Лента событий',
+  alerts: 'Алерты / Honeytokens',
+  audit: 'Аудит / Экспорт IoC',
+};
+
 function switchTab(name) {
-  document.querySelectorAll('.tabs button').forEach((b) =>
+  document.querySelectorAll('.side-nav button').forEach((b) =>
     b.classList.toggle('active', b.dataset.tab === name));
   document.querySelectorAll('.tab').forEach((s) =>
     s.classList.toggle('hidden', s.id !== 'tab-' + name));
+  const pt = $('pageTitle');
+  if (pt) pt.textContent = TAB_TITLES[name] || 'HoneyForge';
+  closeNav();
   if (name === 'feed') refreshEvents().catch((e) => toast(e.message, false));
   if (name === 'alerts') { loadAlerts(); loadTokens(); }
   if (name === 'audit') renderAuditRows().then((h) => { $('auRows').innerHTML = h; });
@@ -478,8 +514,23 @@ document.addEventListener('DOMContentLoaded', () => {
   $('btnLogin').addEventListener('click', bindLogin);
   $('btnLogout').addEventListener('click', logout);
 
-  document.querySelectorAll('.tabs button').forEach((b) =>
+  document.querySelectorAll('.side-nav button').forEach((b) =>
     b.addEventListener('click', () => switchTab(b.dataset.tab)));
+
+  // мобильное меню
+  const burger = $('burger');
+  if (burger) burger.addEventListener('click', () =>
+    $('sidebar').classList.contains('open') ? closeNav() : openNav());
+  const scrim = $('navScrim');
+  if (scrim) scrim.addEventListener('click', closeNav);
+
+  const btnRefreshAll = $('btnRefreshAll');
+  if (btnRefreshAll) btnRefreshAll.addEventListener('click', () => {
+    Promise.all([loadProfiles(), loadHoneypots(), loadStats()])
+      .then(() => { refreshEvents(); loadAlerts(); loadTokens(); })
+      .catch((e) => toast(e.message, false));
+    toast('Данные обновлены');
+  });
 
   $('btnAddHp').addEventListener('click', addHoneypot);
   $('hpRows').addEventListener('click', (e) => {
