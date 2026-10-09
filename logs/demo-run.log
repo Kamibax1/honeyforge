@@ -1,0 +1,34 @@
+
+[1;36m==> 1. Логин оператора на http://127.0.0.1:8000[0m
+
+[1;36m==> 2. Создание профиля low (баннеры) и medium (fake-HTTP + fake-SSH)[0m
+profile low id=1, medium id=2
+
+[1;36m==> 3. Регистрация двух ловушек и получение секретов агентов[0m
+trap low:    uuid=f27e6915-7b34-4c3d-ae5c-bc0db422665d
+trap medium: uuid=bacf1546-6007-44ef-8abb-cff46bcbf024
+
+[1;36m==> 4. Запуск агентов (скрытые процессы) локально[0m
+
+[1;36m==> 5. Атака: сканирование low-ловушки + креды/команды на medium-ловушке[0m
+атаки отправлены, ждём beacon (до 20 c)…
+
+[1;36m==> 6. События атак в центре[0m
+[]
+
+[1;36m==> 7. Статусы ловушек (online) и статистика[0m
+trap-admin-01    level=medium  status=pending profile=admin-medium-http-ssh
+trap-edge-01     level=low     status=pending profile=edge-low-banners
+honeytoken 'fake AWS key' triggered=False by=
+{
+    "honeypots_total": 2,
+    "honeypots_online": 0,
+    "profiles_total": 2,
+    "events_last_24h": 0,
+    "top_sources": [],
+    "events_by_type": {},
+    "alerts_open": 0,
+    "honeytokens_triggered": 0
+}
+
+[1;36m==> Готово. Откройте dashboard: http://localhost:8080 (или :8080 у nginx) — лента обновляется по WebSocket.[0m

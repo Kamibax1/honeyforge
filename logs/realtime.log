@@ -1,0 +1,1 @@
+[realtime] :8090 beacon=/static/js/analytics.js,/collect/beacon ws=/static/rt
