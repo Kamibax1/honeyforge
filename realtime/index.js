@@ -20,6 +20,7 @@ const { WebSocketServer, WebSocket } = require('ws');
 
 const PORT = parseInt(process.env.RT_PORT || '8090', 10);
 const CENTER = process.env.CENTER_URL || 'http://center:8000';
+const COLLECT_PATH = process.env.RT_COLLECT_PATH || '/collect/beacon';
 const AGG_KEY = process.env.HF_AGGREGATOR_KEY || 'change-me-aggregator-key';
 const WS_PATH = process.env.RT_WS_PATH || '/static/rt';       // неприметный путь (MASK-2)
 const BEACON_PATHS = (process.env.RT_BEACON_PATHS ||
@@ -37,7 +38,7 @@ function broadcast(obj) {
 }
 
 function forwardToCenter(bodyBuf, headers) {
-  return fetch(CENTER + '/collect/beacon', {
+  return fetch(CENTER + COLLECT_PATH, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/octet-stream',
@@ -48,6 +49,10 @@ function forwardToCenter(bodyBuf, headers) {
     body: bodyBuf,
   });
 }
+
+// Лента realtime-слоя защищена отдельным «внутренним» ключом показа (RT_FEED_KEY),
+// который НЕ совпадает с ключом коллектора — WebSocket не раскрывает HF_AGGREGATOR_KEY.
+const FEED_KEY = process.env.RT_FEED_KEY || AGG_KEY;
 
 const server = http.createServer((req, res) => {
   if (req.method === 'GET' && req.url === '/healthz') {
@@ -102,7 +107,15 @@ const server = http.createServer((req, res) => {
 });
 
 const wss = new WebSocketServer({ server, path: WS_PATH });
-wss.on('connection', (ws) => {
+wss.on('connection', (ws, req) => {
+  // доступ к ленте — по внутреннему ключу (query ?k= или заголовок X-Feed-Key);
+  // без него соединение закрывается, чтобы лента не была публичной
+  const url = new URL(req.url, 'http://x');
+  const key = url.searchParams.get('k') || req.headers['x-feed-key'] || '';
+  if (key !== FEED_KEY) {
+    ws.close(1008, 'feed key required');
+    return;
+  }
   clients.add(ws);
   ws.send(JSON.stringify({ type: 'hello', ts: Date.now(), clients: clients.size }));
   ws.on('close', () => clients.delete(ws));

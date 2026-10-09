@@ -259,9 +259,14 @@ def ingest_beacon(db: Session, payload: dict) -> dict:
     import random
     delay = max(5.0, interval * (1 + random.uniform(-jitter_pct, jitter_pct) / 100.0))
 
+    cfg_hash = hashlib.sha256(
+        json.dumps(profile_cfg, sort_keys=True).encode() if profile_cfg else b""
+    ).hexdigest()[:16]
+
     return {
         "ok": True,
         "config_version": (h.profile.version if h.profile else 0),
+        "config_hash": cfg_hash,
         "profile": profile_cfg,
         "commands": commands,
         "next_beacon_delay_sec": round(delay, 2),

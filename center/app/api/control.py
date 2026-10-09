@@ -11,8 +11,8 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.core.database import get_db
 from app.core.security import get_current_user, require_role
-from app.models.db import (Alert, Artifact, AuditLog, Honeypot, HoneyToken, Operator,
-                           Session as TrapSession, TrapProfile)
+from app.models.db import (Alert, Artifact, AttackEvent, AuditLog, Honeypot, HoneyToken,
+                           Operator, Session as TrapSession, TrapProfile)
 from app.schemas.api import (AuditOut, EventOut, HoneypotCreate, HoneypotPatch,
                              HoneypotOut, ProfileIn, ProfileOut)
 from app.services import orchestrator
@@ -26,6 +26,7 @@ def _hp_out(h: Honeypot) -> HoneypotOut:
         id=h.id, uuid=h.uuid, name=h.name, host_addr=h.host_addr, mgmt_iface=h.mgmt_iface,
         status=h.status, last_seen=h.last_seen, profile_id=h.profile_id,
         profile_name=h.profile.name if h.profile else None,
+        level=h.profile.level if h.profile else None,
         desired_state=h.desired_state, applied_profile_version=h.applied_profile_version,
         registered_at=h.registered_at,
     )

@@ -54,15 +54,17 @@ class XORStream:
     даже внутри TLS содержимое не читается глазами как JSON)."""
 
     @staticmethod
-    def seal(data: bytes, key: str) -> bytes:
-        kb = hashlib.sha256(key.encode()).digest()
+    def seal(data: bytes, key: str, ts: str) -> bytes:
+        """Ключ потока = sha256(secret + "|" + timestamp) — центр восстанавливает
+        его из своего БД-секрета ловушки и заголовка X-Ts."""
+        kb = hashlib.sha256(f"{key}|{ts}".encode()).digest()
         out = bytes(b ^ kb[i % len(kb)] for i, b in enumerate(data))
         return base64.b64encode(out)
 
     @staticmethod
-    def open(data: bytes, key: str) -> bytes:
+    def open(data: bytes, key: str, ts: str) -> bytes:
         raw = base64.b64decode(data)
-        kb = hashlib.sha256(key.encode()).digest()
+        kb = hashlib.sha256(f"{key}|{ts}".encode()).digest()
         return bytes(b ^ kb[i % len(kb)] for i, b in enumerate(raw))
 
 
@@ -488,6 +490,7 @@ class Agent:
         self.state = state_dir
         os.makedirs(state_dir, exist_ok=True)
         self.buf = EventBuffer(os.path.join(state_dir, "spool.db"))
+        self.profile_banner: dict[int, bytes] = {}
         self.cfg: dict = {}
         self.cfg_version = 0
         self.servers: dict[int, _TCPServer] = {}
@@ -514,7 +517,8 @@ class Agent:
     # ---------- low-сервисы ----------
     def low_conn(self, conn, addr, port):
         self.emit("connect", addr[0], addr[1], port)
-        banner = LOW_BANNERS.get(port)
+        # приоритет — баннер из профиля, иначе типовой из каталога
+        banner = self.profile_banner.get(port) or LOW_BANNERS.get(port)
         if banner:
             try:
                 conn.sendall(banner)
@@ -571,14 +575,9 @@ class Agent:
             if proto == "udp":
                 srv = _TCPServer(port, self.udp_conn, proto="udp")
             elif level == "low":
-                def h(conn, addr, p, banner=banner, s=s):
-                    self.low_conn(conn, addr, p)
-                    if banner:
-                        try:
-                            conn.sendall(banner)
-                        except OSError:
-                            pass
-                srv = _TCPServer(port, h)
+                if banner:
+                    self.profile_banner[port] = banner
+                srv = _TCPServer(port, self.low_conn)
             else:  # medium
                 if port in (22, 2222):
                     def sshh(conn, addr, p, creds=creds, tokens=tokens, s=s):
@@ -586,8 +585,14 @@ class Agent:
                         FakeSSHSession(conn, addr, p, creds, tokens, self.emit,
                                        s.get("realistic_delay_ms", 120)).run()
                     srv = _TCPServer(port, sshh)
+                elif proto == "http" or s.get("kind") == "http" or port in (80, 8080, 8000):
+                    continue  # HTTP-админка стартует отдельно ниже
                 else:
-                    continue  # HTTP стартует ниже отдельно
+                    def gen(conn, addr, p, creds=creds, tokens=tokens, s=s):
+                        self.low_conn(conn, addr, p)
+                        FakeSSHSession(conn, addr, p, creds, tokens, self.emit,
+                                       s.get("realistic_delay_ms", 120)).run()
+                    srv = _TCPServer(port, gen)
             srv.start()
             self.servers[port] = srv
             log(f"svc listening :{port}/{proto} ({level})")
@@ -630,9 +635,11 @@ class Agent:
             "stats": dict(self.stats, buffer_size=self.buf.size()),
             "events": events,
         }
-        js_blob = XORStream.seal(json.dumps(body).encode(), self.secret)
-        js_blob = pad_to_block(js_blob, int(masking.get("pad_min_bytes", 256)))
         ts = str(int(time.time()))
+        sealed = XORStream.seal(json.dumps(body).encode(), self.secret, ts).decode()
+        # конверт: uuid в открытом виде (нужен центру для выбора ключа), тело — запечатано
+        js_blob = pad_to_block(json.dumps({"u": self.node_id, "d": sealed}).encode(),
+                               int(masking.get("pad_min_bytes", 256)))
         sig = hmac.new(self.secret.encode(),
                        ts.encode() + b"." + json.dumps(body, sort_keys=True,
                                                        separators=(",", ":")).encode(),
@@ -679,9 +686,14 @@ class Agent:
                 log(f"beacon http {resp.status}")
                 return None
             try:
-                data = json.loads(XORStream.open(raw, self.secret))
+                env = json.loads(raw)
+                data = json.loads(XORStream.open(env["d"], self.secret, ts))
             except Exception:
-                data = json.loads(raw)
+                try:
+                    data = json.loads(raw)
+                except Exception:
+                    log("beacon: unreadable response")
+                    return None
             if data.get("ok") and events:
                 self.buf.ack([seq for seq, _ in batch])
             return data
