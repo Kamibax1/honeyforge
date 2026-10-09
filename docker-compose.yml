@@ -43,6 +43,7 @@ services:
     environment:
       CENTER_URL: http://center:8000
       HF_AGGREGATOR_KEY: ${HF_AGGREGATOR_KEY:-change-me-aggregator-key}
+      RT_FEED_KEY: ${RT_FEED_KEY:-${HF_AGGREGATOR_KEY:-change-me-aggregator-key}}
     depends_on:
       - center
     ports:

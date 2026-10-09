@@ -29,11 +29,12 @@ PROFILE_LOW=$(curl -sf -X POST "$CENTER/profiles" -H "$AUTH" -H 'Content-Type: a
 PROFILE_MED=$(curl -sf -X POST "$CENTER/profiles" -H "$AUTH" -H 'Content-Type: application/json' -d '{
   "name": "admin-medium-http-ssh", "description": "Fake-админка + fake-SSH", "level": "medium",
   "services": [
-    {"proto":"tcp","port":80,"kind":"http","banner":"nginx/1.24.0"},
-    {"proto":"tcp","port":22,"kind":"ssh","banner":"SSH-2.0-OpenSSH_8.9p1 Ubuntu-3ubuntu0.6"}
+    {"proto":"http","port":8080,"kind":"http","banner":"nginx/1.18.0"},
+    {"proto":"tcp","port":2222,"kind":"ssh","banner":"SSH-2.0-OpenSSH_8.4p1 Debian-5+ubuntu0.7"}
   ],
-  "credentials": [{"username":"admin","password":"P@ssw0rd123","service":"http"}],
-  "honeytokens": [{"kind":"api_key","value":"AKIAIOSFODNN7EXAMPLE","note":"fake AWS key"}]
+  "credentials": [{"username":"admin","password":"P@ssw0rd123"}],
+  "honeytokens": [{"kind":"api_key","label":"fake AWS key","value":"AKIAIOSFODNN7EXAMPLE"}],
+  "masking": {"beacon_interval_sec": 5, "beacon_jitter_pct": 20}
 }')
 LOW_ID=$(echo "$PROFILE_LOW" | python3 -c "import sys,json;print(json.load(sys.stdin)['id'])")
 MED_ID=$(echo "$PROFILE_MED" | python3 -c "import sys,json;print(json.load(sys.stdin)['id'])")
@@ -50,7 +51,14 @@ echo "trap low:    uuid=$UUID_L"
 echo "trap medium: uuid=$UUID_M"
 
 say "4. Запуск агентов (скрытые процессы) локально"
-export HFD_CENTER_URL="$CENTER"
+# Агент ходит по маскированному cover_path; локально его принимает либо nginx/realtime-слой,
+# либо напрямую центр — проксируем cover_path на центр через мини-мост realtime.
+COVER_PROXY="http://127.0.0.1:8090/static/js/analytics.js"
+if curl -sf -o /dev/null http://127.0.0.1:8090/healthz 2>/dev/null; then
+  export HFD_CENTER_URL="http://127.0.0.1:8090"
+else
+  export HFD_CENTER_URL="$CENTER"
+fi
 export HFD_AGGREGATOR_KEY="${HF_AGGREGATOR_KEY:-change-me-aggregator-key}"
 
 HF_TRAP_UUID="$UUID_L" HFD_SECRET="$SECRET_L" HFD_STATE=/tmp/hfd-low \
@@ -65,12 +73,17 @@ sleep 4
 say "5. Атака: сканирование low-ловушки + креды/команды на medium-ловушке"
 nc -w1 127.0.0.1 21  </dev/null >/dev/null 2>&1 || true
 nc -w1 127.0.0.1 25  </dev/null >/dev/null 2>&1 || true
-curl -s -o /dev/null -X POST http://127.0.0.1:80/login \
-  -d 'username=admin&password=letmein' || true
-curl -s -o /dev/null http://127.0.0.1:80/.env || true
-printf 'whoami\ncat /home/www-data/app/.env\nexit\n' | nc -w2 127.0.0.1 22 >/dev/null 2>&1 || true
-echo "атаки отправлены, ждём beacon (до 15 c)…"
-sleep 15
+# fake-HTTP админка: неверные креды → алерт-правило brute force, затем чтение /.env
+for i in 1 2 3 4 5 6; do
+  curl -s -o /dev/null -X POST http://127.0.0.1:8080/login \
+    -d 'user=root&password=hunter'$i || true
+done
+curl -s -o /dev/null http://127.0.0.1:8080/.env || true
+# fake-SSH: баннер + USER/PASS + команды в shell-заглушке
+printf 'USER admin\nP@ssw0rd123\nwhoami\ncat /home/www-data/app/.env\nexit\n' \
+  | nc -q1 -w3 127.0.0.1 2222 >/dev/null 2>&1 || true
+echo "атаки отправлены, ждём beacon (до 20 c)…"
+sleep 20
 
 say "6. События атак в центре"
 curl -sf "$CENTER/events?limit=10" -H "$AUTH" | python3 -m json.tool | head -60
@@ -79,7 +92,15 @@ say "7. Статусы ловушек (online) и статистика"
 curl -sf "$CENTER/honeypots" -H "$AUTH" | python3 -c "
 import sys,json
 for h in json.load(sys.stdin):
-    print(f\"{h['name']:16} level={h.get('level','?'):7} status={h['status']}\")"
+    print(f\"{h['name']:16} level={str(h.get('level')) or '?':7} status={h['status']} profile={h.get('profile_name')}\")"
+curl -sf "$CENTER/alerts" -H "$AUTH" | python3 -c "
+import sys,json
+for a in json.load(sys.stdin)[:5]:
+    print(f\"alert [{a['rule']}/{a['severity']}] {a['src_ip']}: {a['detail']}\")"
+curl -sf "$CENTER/honeytokens" -H "$AUTH" | python3 -c "
+import sys,json
+for t in json.load(sys.stdin)[:5]:
+    print(f\"honeytoken {t['label']!r} triggered={t['triggered']} by={t['triggered_by_ip']}\")"
 curl -sf "$CENTER/stats" -H "$AUTH" | python3 -m json.tool | head -20
 
 say "Готово. Откройте dashboard: http://localhost:8080 (или :8080 у nginx) — лента обновляется по WebSocket."

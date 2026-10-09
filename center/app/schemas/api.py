@@ -100,6 +100,7 @@ class HoneypotOut(BaseModel):
     last_seen: Optional[dt.datetime]
     profile_id: Optional[int]
     profile_name: Optional[str] = None
+    level: Optional[str] = None
     desired_state: str
     applied_profile_version: int
     registered_at: dt.datetime
@@ -132,6 +133,7 @@ class BeaconOut(BaseModel):
     """Ответ центра агенту: обновлённый профиль + команды (выходные данные центр→ловушка)."""
     ok: bool = True
     config_version: int = 0
+    config_hash: str = ""
     profile: Optional[dict[str, Any]] = None
     commands: list[str] = []
     next_beacon_delay_sec: float = 45.0
